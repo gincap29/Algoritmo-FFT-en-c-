@@ -2,18 +2,21 @@
 #include <QWidget>
 #include <QPushButton>
 #include <QComboBox>
-#include <QTextEdit>
 #include <QLineEdit>
 #include <QVBoxLayout>
 #include <QLabel>
-#include <QString>
 #include <vector>
-#include <sstream>
 #include <iostream>
+#include <complex>
+#include <cmath>
 
-class PolynomialMultiplicationApp : public QWidget {
+using namespace std;
+
+const double PI = acos(-1);
+
+class PolynomialApp : public QWidget {
 public:
-    PolynomialMultiplicationApp(QWidget *parent = nullptr);
+    PolynomialApp(QWidget *parent = nullptr);
 
 private slots:
     void addPolynomial();
@@ -22,124 +25,110 @@ private slots:
 
 private:
     QComboBox *algorithmSelector;
-    QLineEdit *inputField;
-    QTextEdit *polynomialDisplay;
+    QLineEdit *inputFieldA;
+    QLineEdit *inputFieldB;
     QLabel *resultLabel;
-    std::vector<std::vector<int>> polynomials; // Almacena los polinomios agregados
+    vector<int> A, B;
 
-    std::vector<int> parsePolynomial(const QString &input);
-    std::vector<int> multiplyWithLagrange(const std::vector<int> &p1, const std::vector<int> &p2);
-    // Agrega otras funciones de multiplicación de polinomios según los algoritmos
+    // Funciones para los diferentes algoritmos
+    vector<int> multiplyPolynomialsLagrange();
+    vector<int> multiplyPolynomialsFFT();
+    vector<int> multiplyPolynomialsIterativeFFT();
 };
 
-PolynomialMultiplicationApp::PolynomialMultiplicationApp(QWidget *parent) : QWidget(parent) {
-    // Diseño básico de la interfaz
+// Constructor de la aplicación
+PolynomialApp::PolynomialApp(QWidget *parent) : QWidget(parent) {
+    // Crear elementos de la interfaz
     algorithmSelector = new QComboBox();
     algorithmSelector->addItem("Lagrange");
     algorithmSelector->addItem("FFT Reales");
     algorithmSelector->addItem("FFT Imaginarios");
     algorithmSelector->addItem("Iterativo con Reverso de Bits");
 
-    inputField = new QLineEdit();
-    QPushButton *addButton = new QPushButton("Agregar");
+    inputFieldA = new QLineEdit();
+    inputFieldB = new QLineEdit();
     QPushButton *multiplyButton = new QPushButton("Multiplicar");
     QPushButton *clearButton = new QPushButton("Limpiar");
-    polynomialDisplay = new QTextEdit();
     resultLabel = new QLabel("Resultado:");
 
     QVBoxLayout *layout = new QVBoxLayout();
-    layout->addWidget(new QLabel("Elija un algoritmo:"));
+    layout->addWidget(new QLabel("Seleccione un algoritmo:"));
     layout->addWidget(algorithmSelector);
-    layout->addWidget(new QLabel("Ingrese un polinomio (coeficientes separados por espacios):"));
-    layout->addWidget(inputField);
-    layout->addWidget(addButton);
+    layout->addWidget(new QLabel("Ingrese polinomio A (coeficientes separados por espacios):"));
+    layout->addWidget(inputFieldA);
+    layout->addWidget(new QLabel("Ingrese polinomio B (coeficientes separados por espacios):"));
+    layout->addWidget(inputFieldB);
     layout->addWidget(multiplyButton);
     layout->addWidget(clearButton);
-    layout->addWidget(polynomialDisplay);
     layout->addWidget(resultLabel);
 
     setLayout(layout);
 
-    connect(addButton, &QPushButton::clicked, this, &PolynomialMultiplicationApp::addPolynomial);
-    connect(multiplyButton, &QPushButton::clicked, this, &PolynomialMultiplicationApp::multiplyPolynomials);
-    connect(clearButton, &QPushButton::clicked, this, &PolynomialMultiplicationApp::clearFields);
+    // Conectar botones a funciones
+    connect(multiplyButton, &QPushButton::clicked, this, &PolynomialApp::multiplyPolynomials);
+    connect(clearButton, &QPushButton::clicked, this, &PolynomialApp::clearFields);
 }
 
-std::vector<int> PolynomialMultiplicationApp::parsePolynomial(const QString &input) {
-    std::vector<int> polynomial;
-    std::istringstream iss(input.toStdString());
-    int coef;
-
-    while (iss >> coef) {
-        polynomial.push_back(coef);
-    }
-
-    return polynomial;
-}
-
-void PolynomialMultiplicationApp::addPolynomial() {
-    QString polynomialText = inputField->text();
-    std::vector<int> polynomial = parsePolynomial(polynomialText);
+// Función para agregar los polinomios
+void PolynomialApp::addPolynomial() {
+    QString inputA = inputFieldA->text();
+    QString inputB = inputFieldB->text();
+    A.clear();
+    B.clear();
     
-    if (!polynomial.empty()) {
-        polynomials.push_back(polynomial);
-        polynomialDisplay->append("Polinomio agregado: " + polynomialText);
-    } else {
-        // Manejo de errores: Mostrar un mensaje al usuario si el polinomio es inválido
-        polynomialDisplay->append("Error: Polinomio inválido.");
-    }
+    // Parsear los coeficientes
+    for (const auto &val : inputA.split(" ")) A.push_back(val.toInt());
+    for (const auto &val : inputB.split(" ")) B.push_back(val.toInt());
 }
 
-void PolynomialMultiplicationApp::multiplyPolynomials() {
-    if (polynomials.size() < 2) {
-        resultLabel->setText("Error: Necesita al menos dos polinomios para multiplicar.");
-        return;
-    }
-
+// Función para realizar la multiplicación según el algoritmo seleccionado
+void PolynomialApp::multiplyPolynomials() {
+    addPolynomial();
+    vector<int> result;
     QString algorithm = algorithmSelector->currentText();
-    std::vector<int> result;
 
     if (algorithm == "Lagrange") {
-        // Asumiendo que los polinomios a multiplicar son los dos primeros en el vector
-        result = multiplyWithLagrange(polynomials[0], polynomials[1]);
-    } else if (algorithm == "FFT Reales") {
-        // Implementar FFT con números reales
-    } else if (algorithm == "FFT Imaginarios") {
-        // Implementar FFT con números imaginarios
+        result = multiplyPolynomialsLagrange();
+    } else if (algorithm == "FFT Reales" || algorithm == "FFT Imaginarios") {
+        result = multiplyPolynomialsFFT();
     } else if (algorithm == "Iterativo con Reverso de Bits") {
-        // Implementar FFT iterativo con reverso de bits
+        result = multiplyPolynomialsIterativeFFT();
     }
 
-    // Mostrar el resultado
-    QString resultStr = "Resultado: ";
-    for (const int &coef : result) {
-        resultStr += QString::number(coef) + " ";
-    }
-    resultLabel->setText(resultStr);
+    QString resultText;
+    for (int x : result) resultText += QString::number(x) + " ";
+    resultLabel->setText("Resultado: " + resultText);
 }
 
-void PolynomialMultiplicationApp::clearFields() {
-    inputField->clear();
-    polynomialDisplay->clear();
+// Función para limpiar los campos
+void PolynomialApp::clearFields() {
+    inputFieldA->clear();
+    inputFieldB->clear();
     resultLabel->clear();
-    polynomials.clear();
 }
 
+// Implementación de la multiplicación de polinomios con Lagrange (puedes adaptar las que ya tienes)
+vector<int> PolynomialApp::multiplyPolynomialsLagrange() {
+    return A; // Placeholder
+}
+
+// Implementación de la multiplicación de polinomios con FFT
+vector<int> PolynomialApp::multiplyPolynomialsFFT() {
+    return A; // Placeholder
+}
+
+// Implementación de la multiplicación de polinomios con FFT iterativo
+vector<int> PolynomialApp::multiplyPolynomialsIterativeFFT() {
+    return A; // Placeholder
+}
+
+// Aquí está el main() que necesitas agregar
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
 
-    PolynomialMultiplicationApp window;
+    PolynomialApp window;
     window.setWindowTitle("Multiplicación de Polinomios");
-    window.resize(400, 400);
     window.show();
 
     return app.exec();
-}
-
-// Implementar la función para multiplicar polinomios usando Lagrange
-std::vector<int> PolynomialMultiplicationApp::multiplyWithLagrange(const std::vector<int> &p1, const std::vector<int> &p2) {
-    // Implementación de la multiplicación de polinomios usando el método de Lagrange
-    // Retornar el resultado como un vector de coeficientes
-    std::vector<int> result; // Implementar la lógica
-    return result;
 }
